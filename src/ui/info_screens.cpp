@@ -15,6 +15,7 @@ namespace ui::info {
 constexpr int cx = config::kDisplayWidth / 2;
 constexpr int cy = config::kDisplayHeight / 2;
 
+
 /*
  * ============================================================
  * COLORS
@@ -35,19 +36,25 @@ constexpr uint16_t C_CLOUD      = 0xBDF7;
 constexpr uint16_t C_DARKCLOUD  = 0x7BEF;
 constexpr uint16_t C_DARKBLUE   = 0x0190;
 
+
 /*
  * ============================================================
  * CLOCK
+ *
+ * Display is approximately 240 x 240.
+ *
+ * Keep only a small border around the clock face.
  * ============================================================
  */
 
-constexpr int CLOCK_RADIUS       = 101;
-constexpr int MINUTE_MARK_OUTER = 97;
-constexpr int HOUR_MARK_OUTER   = 96;
-constexpr int HOUR_NUMBER_RADIUS = 81;
+constexpr int CLOCK_RADIUS        = 110;
+constexpr int MINUTE_MARK_OUTER  = 106;
+constexpr int HOUR_MARK_OUTER    = 105;
+constexpr int HOUR_NUMBER_RADIUS  = 91;
 
-constexpr int HOUR_HAND_LENGTH   = 52;
-constexpr int MINUTE_HAND_LENGTH = 74;
+constexpr int HOUR_HAND_LENGTH    = 61;
+constexpr int MINUTE_HAND_LENGTH  = 87;
+
 
 /*
  * ============================================================
@@ -73,12 +80,23 @@ void clockPoint(
  */
 
 const char* windDir(float deg) {
+
     static const char* dirs[] = {
-        "С", "СВ", "В", "ЮВ",
-        "Ю", "ЮЗ", "З", "СЗ"
+        "С",
+        "СВ",
+        "В",
+        "ЮВ",
+        "Ю",
+        "ЮЗ",
+        "З",
+        "СЗ"
     };
 
-    int i = static_cast<int>((deg + 22.5f) / 45.0f) % 8;
+    int i =
+        static_cast<int>(
+            (deg + 22.5f) / 45.0f
+        ) % 8;
+
     return dirs[i];
 }
 
@@ -92,7 +110,7 @@ const char* windDir(float deg) {
 void drawClockFace() {
 
     /*
-     * Outer circle.
+     * Outer border.
      */
 
     tft.drawCircle(
@@ -127,7 +145,9 @@ void drawClockFace() {
             (minute % 5 == 0);
 
         const float innerRadius =
-            hourMark ? 88.0f : 94.0f;
+            hourMark
+                ? 96.0f
+                : 103.0f;
 
         int x1;
         int y1;
@@ -153,7 +173,9 @@ void drawClockFace() {
             y1,
             x2,
             y2,
-            hourMark ? C_WHITE : C_DARKBLUE
+            hourMark
+                ? C_WHITE
+                : C_DARKBLUE
         );
     }
 
@@ -163,11 +185,14 @@ void drawClockFace() {
      */
 
     if (displayFontIsSmooth()) {
+
         displayFontSetSmoothSize(
             tft,
-            1.05f
+            1.35f
         );
+
     } else {
+
         tft.setTextSize(2);
     }
 
@@ -180,9 +205,14 @@ void drawClockFace() {
         textdatum_t::middle_center
     );
 
+
     const int majorHours[] = {
-        12, 3, 6, 9
+        12,
+        3,
+        6,
+        9
     };
+
 
     for (int hour : majorHours) {
 
@@ -255,7 +285,7 @@ void drawClockFace() {
         tft.fillCircle(
             x,
             y,
-            2,
+            3,
             C_SILVER
         );
     }
@@ -273,6 +303,7 @@ void drawHand(
     float radius,
     uint16_t color
 ) {
+
     int x;
     int y;
 
@@ -341,7 +372,7 @@ void drawClockHands(
 
 
     /*
-     * Hour.
+     * Hour hand.
      */
 
     drawHand(
@@ -352,7 +383,7 @@ void drawClockHands(
 
 
     /*
-     * Minute.
+     * Minute hand.
      */
 
     drawHand(
@@ -369,14 +400,14 @@ void drawClockHands(
     tft.fillCircle(
         cx,
         cy,
-        6,
+        7,
         C_ORANGE
     );
 
     tft.fillCircle(
         cx,
         cy,
-        2,
+        3,
         C_WHITE
     );
 }
@@ -387,7 +418,10 @@ void drawClockHands(
  * DATE
  *
  * Example:
+ *
  * 15 Sen
+ *
+ * No frame.
  * ============================================================
  */
 
@@ -422,6 +456,7 @@ const char* monthEn(int month) {
 void drawClockDate(
     const struct tm& tm_now
 ) {
+
     char datebuf[24];
 
     snprintf(
@@ -432,14 +467,19 @@ void drawClockDate(
         monthEn(tm_now.tm_mon)
     );
 
+
     if (displayFontIsSmooth()) {
+
         displayFontSetSmoothSize(
             tft,
-            0.82f
+            1.00f
         );
+
     } else {
-        tft.setTextSize(1);
+
+        tft.setTextSize(2);
     }
+
 
     tft.setTextColor(
         C_YELLOW,
@@ -450,14 +490,18 @@ void drawClockDate(
         textdatum_t::middle_center
     );
 
+
     /*
-     * No frame.
+     * Date is deliberately drawn AFTER the hands.
+     *
+     * This keeps the date clean and readable
+     * without a frame.
      */
 
     tft.drawString(
         datebuf,
         cx,
-        cy + 24
+        cy + 28
     );
 }
 
@@ -473,12 +517,14 @@ void drawSun(
     int y,
     int radius
 ) {
+
     tft.fillCircle(
         x,
         y,
         radius,
         C_YELLOW
     );
+
 
     for (int i = 0; i < 8; ++i) {
 
@@ -505,14 +551,14 @@ void drawSun(
             x +
             static_cast<int>(
                 cosf(angle) *
-                (radius + 11)
+                (radius + 12)
             );
 
         const int y2 =
             y +
             static_cast<int>(
                 sinf(angle) *
-                (radius + 11)
+                (radius + 12)
             );
 
         tft.drawLine(
@@ -537,10 +583,12 @@ void drawCloud(
     int y,
     bool dark
 ) {
+
     const uint16_t color =
         dark
             ? C_DARKCLOUD
             : C_CLOUD;
+
 
     tft.fillCircle(
         x - 16,
@@ -583,6 +631,7 @@ void drawPartlyCloudy(
     int x,
     int y
 ) {
+
     drawSun(
         x - 15,
         y - 9,
@@ -607,11 +656,13 @@ void drawRain(
     int x,
     int y
 ) {
+
     drawCloud(
         x,
         y,
         true
     );
+
 
     for (int i = -1; i <= 1; ++i) {
 
@@ -622,7 +673,7 @@ void drawRain(
             rx,
             y + 24,
             rx - 4,
-            y + 33,
+            y + 34,
             C_SKY
         );
     }
@@ -639,11 +690,13 @@ void drawSnow(
     int x,
     int y
 ) {
+
     drawCloud(
         x,
         y,
         false
     );
+
 
     for (int i = -1; i <= 1; ++i) {
 
@@ -652,6 +705,7 @@ void drawSnow(
 
         const int sy =
             y + 29;
+
 
         tft.drawLine(
             sx - 4,
@@ -698,11 +752,13 @@ void drawStorm(
     int x,
     int y
 ) {
+
     drawCloud(
         x,
         y,
         true
     );
+
 
     tft.fillTriangle(
         x + 2,
@@ -739,7 +795,7 @@ void drawWeatherIcon(
 ) {
 
     /*
-     * Clear.
+     * Clear sky.
      */
 
     if (code == 0) {
@@ -747,7 +803,7 @@ void drawWeatherIcon(
         drawSun(
             x,
             y,
-            19
+            20
         );
 
         return;
@@ -802,6 +858,7 @@ void drawWeatherIcon(
             y,
             true
         );
+
 
         for (int i = -1; i <= 1; ++i) {
 
@@ -898,6 +955,7 @@ void drawWeather() {
         C_BLACK
     );
 
+
     const auto& w =
         services::weather::current();
 
@@ -907,11 +965,13 @@ void drawWeather() {
      */
 
     if (displayFontIsSmooth()) {
+
         displayFontSetSmoothSize(
             tft,
-            0.62f
+            0.72f
         );
     }
+
 
     tft.setTextColor(
         C_WHITE,
@@ -922,10 +982,11 @@ void drawWeather() {
         textdatum_t::middle_center
     );
 
+
     tft.drawString(
         "WEATHER",
         cx,
-        18
+        16
     );
 
 
@@ -936,9 +997,10 @@ void drawWeather() {
     if (!w.valid) {
 
         if (displayFontIsSmooth()) {
+
             displayFontSetSmoothSize(
                 tft,
-                0.65f
+                0.75f
             );
         }
 
@@ -951,7 +1013,7 @@ void drawWeather() {
         tft.drawString(
             "Waiting...",
             cx,
-            130
+            135
         );
 
         return;
@@ -964,8 +1026,8 @@ void drawWeather() {
 
     drawWeatherIcon(
         w.weather_code,
-        58,
-        75
+        55,
+        67
     );
 
 
@@ -982,53 +1044,71 @@ void drawWeather() {
         w.temperature_c
     );
 
+
     if (displayFontIsSmooth()) {
+
         displayFontSetSmoothSize(
             tft,
-            1.25f
+            1.38f
         );
     }
+
 
     tft.setTextColor(
         C_ORANGE,
         C_BLACK
     );
 
+
     tft.drawString(
         buf,
-        145,
-        70
+        151,
+        62
     );
 
 
     /*
-     * Description.
+     * Weather description.
      */
 
     if (displayFontIsSmooth()) {
+
         displayFontSetSmoothSize(
             tft,
-            0.55f
+            0.68f
         );
     }
+
 
     tft.setTextColor(
         C_WHITE,
         C_BLACK
     );
 
+
     tft.drawString(
         services::weather::descriptionRu(
             w.weather_code
         ),
-        145,
-        98
+        151,
+        91
     );
 
 
     /*
-     * Feels like.
+     * ========================================================
+     * FEELS
+     * ========================================================
      */
+
+    if (displayFontIsSmooth()) {
+
+        displayFontSetSmoothSize(
+            tft,
+            0.78f
+        );
+    }
+
 
     snprintf(
         buf,
@@ -1037,20 +1117,24 @@ void drawWeather() {
         w.apparent_c
     );
 
+
     tft.setTextColor(
         C_CYAN,
         C_BLACK
     );
 
+
     tft.drawString(
         buf,
         cx,
-        130
+        122
     );
 
 
     /*
-     * Humidity.
+     * ========================================================
+     * HUMIDITY
+     * ========================================================
      */
 
     snprintf(
@@ -1060,20 +1144,24 @@ void drawWeather() {
         w.humidity_pct
     );
 
+
     tft.setTextColor(
         C_SKY,
         C_BLACK
     );
 
+
     tft.drawString(
         buf,
         cx,
-        154
+        150
     );
 
 
     /*
-     * Wind.
+     * ========================================================
+     * WIND
+     * ========================================================
      */
 
     snprintf(
@@ -1084,10 +1172,12 @@ void drawWeather() {
         windDir(w.wind_deg)
     );
 
+
     tft.setTextColor(
         C_GREEN,
         C_BLACK
     );
+
 
     tft.drawString(
         buf,
@@ -1097,7 +1187,9 @@ void drawWeather() {
 
 
     /*
-     * Pressure.
+     * ========================================================
+     * PRESSURE
+     * ========================================================
      */
 
     snprintf(
@@ -1107,15 +1199,17 @@ void drawWeather() {
         w.pressure_hpa
     );
 
+
     tft.setTextColor(
         C_SILVER,
         C_BLACK
     );
 
+
     tft.drawString(
         buf,
         cx,
-        202
+        206
     );
 }
 
@@ -1132,7 +1226,9 @@ void drawClock() {
         C_BLACK
     );
 
+
     struct tm tm_now;
+
 
     if (
         !getLocalTime(
@@ -1142,11 +1238,17 @@ void drawClock() {
     ) {
 
         if (displayFontIsSmooth()) {
+
             displayFontSetSmoothSize(
                 tft,
-                0.70f
+                0.80f
             );
+
+        } else {
+
+            tft.setTextSize(2);
         }
+
 
         tft.setTextColor(
             C_WHITE,
@@ -1157,16 +1259,17 @@ void drawClock() {
             textdatum_t::middle_center
         );
 
+
         tft.drawString(
             "SYNC",
             cx,
-            cy - 10
+            cy - 12
         );
 
         tft.drawString(
             "NTP...",
             cx,
-            cy + 20
+            cy + 22
         );
 
         return;
@@ -1174,34 +1277,40 @@ void drawClock() {
 
 
     /*
-     * Clock face.
+     * ========================================================
+     * CLOCK FACE
+     * ========================================================
      */
 
     drawClockFace();
 
 
     /*
-     * Date:
+     * ========================================================
+     * HANDS
      *
-     * 15 Sen
-     *
-     * No frame.
-     * No Almaty.
-     * No UTC+5.
+     * Only hour and minute.
+     * ========================================================
      */
 
-    drawClockDate(
+    drawClockHands(
         tm_now
     );
 
 
     /*
-     * Hour + minute only.
+     * ========================================================
+     * DATE
      *
-     * NO SECOND HAND.
+     * 15 Sen
+     *
+     * No frame.
+     *
+     * Draw after hands so the date remains readable.
+     * ========================================================
      */
 
-    drawClockHands(
+    drawClockDate(
         tm_now
     );
 }
