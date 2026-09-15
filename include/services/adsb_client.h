@@ -29,7 +29,11 @@ bool fetchUpdate(
     double center_lon,
     float fetch_radius_km);
 
-/** Start non-blocking background ADS-B updates. */
+/**
+ * Start ADS-B updates in a background FreeRTOS task.
+ *
+ * Network requests run independently from the display loop.
+ */
 void startBackgroundUpdates(
     double center_lat,
     double center_lon,
