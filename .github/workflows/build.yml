@@ -21,13 +21,12 @@ jobs:
         run: pip install --upgrade platformio
 
       - name: Build firmware
-        run: pio run
+        run: pio run -t merge
 
       - name: Upload firmware
         uses: actions/upload-artifact@v7
         with:
           name: ESP32-Plane-Radar-v1.1.3-weather-clock
           path: |
-            .pio/build/**/firmware.bin
-            .pio/build/**/firmware.elf
+            .pio/build/supermini/firmware-merged.bin
           if-no-files-found: error
