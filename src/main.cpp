@@ -1,7 +1,6 @@
 /**
  * Plane Radar — WiFi setup, radar, weather and clock UI.
  */
-
 #include <Arduino.h>
 #include <WiFi.h>
 #include <time.h>
@@ -23,26 +22,26 @@ bool g_radar_visible = false;
 
 unsigned long g_wifi_down_since = 0;
 unsigned long g_last_reconnect_ms = 0;
-unsigned long g_last_adsb_fetch_ms = 0;
-unsigned long g_last_weather_refresh_ms = 0;
-unsigned long g_last_radar_animation_ms = 0;
 
-int g_last_clock_minute = -1;
-int g_last_clock_day = -1;
+unsigned long g_last_info_refresh_ms = 0;
+unsigned long g_last_radar_animation_ms = 0;
 
 ui::info::Screen g_screen =
     ui::info::Screen::Radar;
 
-/*
- * Radar sweep animation:
- * approximately 30 frames per second.
- *
- * ADS-B polling remains completely independent
- * from this timer.
- */
-constexpr unsigned long kRadarAnimationIntervalMs = 33UL;
+// Single tap changes screen.
+// Double tap changes radar range.
+bool g_pending_tap = false;
+unsigned long g_pending_tap_ms = 0;
+
+constexpr unsigned long kDoubleTapWindowMs = 420;
+
+// Radar animation target: about 30 FPS.
+constexpr unsigned long
+    kRadarAnimationIntervalMs = 33UL;
 
 void setupTime() {
+  // Kazakhstan / Almaty: UTC+5, no DST.
   configTime(
       5 * 3600,
       0,
@@ -55,6 +54,7 @@ void drawCurrentScreen() {
   if (g_screen == ui::info::Screen::Radar) {
     if (WiFi.status() == WL_CONNECTED) {
       ui::radarDisplayDraw();
+
       g_radar_visible = true;
       g_last_radar_animation_ms = millis();
     }
@@ -64,147 +64,89 @@ void drawCurrentScreen() {
   }
 }
 
-void showWeatherScreen() {
-  g_screen = ui::info::Screen::Weather;
-  g_radar_visible = false;
+void onRangeTap() {
+  ui::radar::rangeNext();
 
-  g_last_weather_refresh_ms = 0;
+  char range_label[12];
 
-  ui::info::drawWeather();
+  ui::radar::formatCurrentRing3Label(
+      range_label,
+      sizeof(range_label));
 
-  if (WiFi.status() == WL_CONNECTED) {
-    services::weather::update(
-        services::location::lat(),
-        services::location::lon());
+  Serial.printf(
+      "Range: %s (outer ~%.0f km)\n",
+      range_label,
+      ui::radar::rangeCurrent().outer_km);
 
-    ui::info::drawWeather();
-  }
+  if (g_screen == ui::info::Screen::Radar &&
+      WiFi.status() == WL_CONNECTED) {
+    ui::radarDisplayDraw();
 
-  g_last_weather_refresh_ms = millis();
-}
-
-void showClockScreen() {
-  g_screen = ui::info::Screen::Clock;
-  g_radar_visible = false;
-
-  g_last_clock_minute = -1;
-  g_last_clock_day = -1;
-
-  ui::info::drawClock();
-
-  struct tm tm_now;
-
-  if (getLocalTime(&tm_now, 50)) {
-    g_last_clock_minute = tm_now.tm_min;
-    g_last_clock_day = tm_now.tm_yday;
+    g_last_radar_animation_ms =
+        millis();
   }
 }
 
 void cycleScreen() {
-  if (g_screen == ui::info::Screen::Radar) {
+  if (g_screen ==
+      ui::info::Screen::Radar) {
+    g_screen =
+        ui::info::Screen::Weather;
 
-    showWeatherScreen();
+    services::weather::update(
+        services::location::lat(),
+        services::location::lon());
 
-  } else if (g_screen == ui::info::Screen::Weather) {
-
-    showClockScreen();
+  } else if (
+      g_screen ==
+      ui::info::Screen::Weather) {
+    g_screen =
+        ui::info::Screen::Clock;
 
   } else {
-
-    g_screen = ui::info::Screen::Radar;
-
-    g_last_adsb_fetch_ms = 0;
-
-    drawCurrentScreen();
+    g_screen =
+        ui::info::Screen::Radar;
   }
+
+  drawCurrentScreen();
 }
 
 void handleBootButton() {
   bootButtonPollLongPress();
 
   if (bootButtonConsumeTap()) {
+    const unsigned long now =
+        millis();
+
+    if (g_pending_tap &&
+        now - g_pending_tap_ms <=
+            kDoubleTapWindowMs) {
+      g_pending_tap = false;
+
+      if (g_screen ==
+          ui::info::Screen::Radar) {
+        onRangeTap();
+      }
+
+      return;
+    }
+
+    g_pending_tap = true;
+    g_pending_tap_ms = now;
+  }
+
+  if (g_pending_tap &&
+      millis() - g_pending_tap_ms >
+          kDoubleTapWindowMs) {
+    g_pending_tap = false;
+
     cycleScreen();
   }
 }
 
-void fetchAndDrawAircraft() {
-  const float fetch_km =
-      ui::radar::fetchRadiusKm();
-
-  if (!services::adsb::fetchUpdate(
-          services::location::lat(),
-          services::location::lon(),
-          fetch_km)) {
-
-    handleBootButton();
-    return;
-  }
-
-  if (g_screen == ui::info::Screen::Radar) {
-    ui::radarDisplayRefreshAircraft();
-  }
-
-  handleBootButton();
-}
-
-void updateWeatherIfNeeded() {
-  if (g_screen != ui::info::Screen::Weather) {
-    return;
-  }
-
-  if (WiFi.status() != WL_CONNECTED) {
-    return;
-  }
-
-  const unsigned long now = millis();
-
-  if (now - g_last_weather_refresh_ms <
-      10UL * 60UL * 1000UL) {
-    return;
-  }
-
-  g_last_weather_refresh_ms = now;
-
-  services::weather::update(
-      services::location::lat(),
-      services::location::lon());
-
-  ui::info::drawWeather();
-}
-
-void updateClockIfNeeded() {
-  if (g_screen != ui::info::Screen::Clock) {
-    return;
-  }
-
-  struct tm tm_now;
-
-  if (!getLocalTime(&tm_now, 10)) {
-    return;
-  }
-
-  if (tm_now.tm_min != g_last_clock_minute ||
-      tm_now.tm_yday != g_last_clock_day) {
-
-    g_last_clock_minute =
-        tm_now.tm_min;
-
-    g_last_clock_day =
-        tm_now.tm_yday;
-
-    ui::info::drawClock();
-  }
-}
-
-/*
- * Animate radar sweep independently from ADS-B.
- *
- * This is deliberately a separate timer. Aircraft data can update
- * every several seconds while the sweep continues smoothly at
- * approximately 30 FPS.
- */
 void updateRadarAnimation() {
-  if (g_screen != ui::info::Screen::Radar) {
+  if (g_screen !=
+      ui::info::Screen::Radar) {
     return;
   }
 
@@ -212,9 +154,11 @@ void updateRadarAnimation() {
     return;
   }
 
-  const unsigned long now = millis();
+  const unsigned long now =
+      millis();
 
-  if (now - g_last_radar_animation_ms <
+  if (now -
+          g_last_radar_animation_ms <
       kRadarAnimationIntervalMs) {
     return;
   }
@@ -232,6 +176,7 @@ void setup() {
   delay(500);
 
   Serial.println();
+
   Serial.println(
       "Plane Radar + Weather + Clock");
 
@@ -247,11 +192,28 @@ void setup() {
 
   ui::radar::rangeInit();
 
-  services::adsb::setPollFn(wifiLoop);
+  services::adsb::setPollFn(
+      wifiLoop);
 
   if (wifiSetupConnect()) {
-
     setupTime();
+
+    services::weather::update(
+        services::location::lat(),
+        services::location::lon());
+
+    /*
+     * Start ADS-B networking in a separate
+     * FreeRTOS task.
+     *
+     * The main loop will no longer wait
+     * for HTTPS/ADS-B requests.
+     */
+    services::adsb::startBackgroundUpdates(
+        services::location::lat(),
+        services::location::lon(),
+        ui::radar::fetchRadiusKm(),
+        config::kAdsbFetchIntervalMs);
 
     drawCurrentScreen();
   }
@@ -259,21 +221,19 @@ void setup() {
 
 void loop() {
   /*
-   * Button must remain responsive regardless of
-   * which screen is currently displayed.
+   * Keep the display/button loop responsive.
    */
   handleBootButton();
 
-  /*
-   * Keep Wi-Fi stack alive.
-   */
   wifiLoop();
 
   /*
-   * Wi-Fi disconnected.
+   * Radar sweep runs independently from
+   * ADS-B network requests.
    */
-  if (WiFi.status() != WL_CONNECTED) {
+  updateRadarAnimation();
 
+  if (WiFi.status() != WL_CONNECTED) {
     if (g_radar_visible) {
       Serial.println(
           "WiFi lost — will reconnect");
@@ -286,88 +246,69 @@ void loop() {
     }
 
     const unsigned long down_ms =
-        millis() - g_wifi_down_since;
+        millis() -
+        g_wifi_down_since;
 
     if (down_ms >=
             config::kWifiDownGraceMs &&
-        millis() - g_last_reconnect_ms >=
+        millis() -
+                g_last_reconnect_ms >=
             config::kWifiReconnectIntervalMs) {
-
-      g_last_reconnect_ms = millis();
+      g_last_reconnect_ms =
+          millis();
 
       if (wifiReconnect()) {
-
         g_wifi_down_since = 0;
 
         setupTime();
 
-        drawCurrentScreen();
+        services::weather::update(
+            services::location::lat(),
+            services::location::lon());
 
-        g_last_clock_minute = -1;
-        g_last_clock_day = -1;
+        drawCurrentScreen();
       }
     }
 
   } else {
-
-    /*
-     * Wi-Fi connected.
-     */
     g_wifi_down_since = 0;
 
-    /*
-     * RADAR
-     */
     if (g_screen ==
         ui::info::Screen::Radar) {
 
       if (!g_radar_visible) {
-
         drawCurrentScreen();
-
-      } else {
-
-        /*
-         * Smooth sweep animation.
-         *
-         * This runs independently of ADS-B.
-         */
-        updateRadarAnimation();
-
-        /*
-         * ADS-B data update.
-         */
-        if (millis() -
-                g_last_adsb_fetch_ms >=
-            config::kAdsbFetchIntervalMs) {
-
-          g_last_adsb_fetch_ms =
-              millis();
-
-          fetchAndDrawAircraft();
-        }
       }
 
-    /*
-     * WEATHER
-     */
-    } else if (
-        g_screen ==
-        ui::info::Screen::Weather) {
-
-      updateWeatherIfNeeded();
-
-    /*
-     * CLOCK
-     */
     } else {
 
-      updateClockIfNeeded();
+      if (millis() -
+              g_last_info_refresh_ms >=
+          30000UL) {
+        g_last_info_refresh_ms =
+            millis();
+
+        if (g_screen ==
+            ui::info::Screen::Weather) {
+
+          services::weather::update(
+              services::location::lat(),
+              services::location::lon());
+
+          ui::info::drawWeather();
+
+        } else {
+
+          ui::info::drawClock();
+        }
+      }
     }
   }
 
   /*
-   * Small yield to keep the ESP32 responsive.
+   * Small yield so WiFi/FreeRTOS tasks
+   * get processor time without creating
+   * a visible delay in the sweep.
    */
   delay(1);
 }
