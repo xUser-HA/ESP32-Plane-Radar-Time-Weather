@@ -15,33 +15,39 @@ namespace ui::info {
 
 namespace {
 
+/*
+ * ============================================================
+ * GENERAL
+ * ============================================================
+ */
+
 constexpr int cx = config::kDisplayWidth / 2;
 constexpr int cy = config::kDisplayHeight / 2;
 
+
 /*
  * ============================================================
- * ANALOG CLOCK
+ * CLOCK SETTINGS
  * ============================================================
  *
- * For a 240x240 display:
+ * 240x240 display:
  *
- * radius = 88 px
+ * Clock radius = 88 px.
  *
- * This leaves a visible margin around the clock face.
+ * This leaves a visible margin from the display edge.
  */
 
 constexpr int kClockRadius = 88;
 
-/*
- * Clock marks.
- */
 constexpr int kMinuteMarkOuter = 84;
 constexpr int kHourMarkOuter = 84;
 constexpr int kHourNumberRadius = 69;
 
+
 /*
- * Hand lengths.
+ * Clock hand lengths.
  */
+
 constexpr int kHourHandLength = 45;
 constexpr int kMinuteHandLength = 64;
 constexpr int kSecondHandLength = 75;
@@ -63,7 +69,7 @@ constexpr uint16_t kDarkBlue = 0x0190;
 
 /*
  * ============================================================
- * GENERAL TEXT HELPERS
+ * TEXT HELPERS
  * ============================================================
  */
 
@@ -137,10 +143,10 @@ const char* windDir(
 
 /*
  * ============================================================
- * CLOCK GEOMETRY
+ * CLOCK COORDINATES
  * ============================================================
  *
- * 12 o'clock corresponds to -PI/2.
+ * 12 o'clock = -PI/2.
  */
 
 void clockPoint(
@@ -172,7 +178,7 @@ void clockPoint(
 void drawClockFace() {
 
     /*
-     * Outer border.
+     * Outer circle.
      */
     tft.drawCircle(
         cx,
@@ -181,8 +187,9 @@ void drawClockFace() {
         kDarkBlue
     );
 
+
     /*
-     * Inner thin border.
+     * Inner circle.
      */
     tft.drawCircle(
         cx,
@@ -210,9 +217,6 @@ void drawClockFace() {
             PI / 2.0f;
 
 
-        /*
-         * Every fifth mark is an hour mark.
-         */
         const bool hourMark =
             (minute % 5 == 0);
 
@@ -342,8 +346,6 @@ void drawClockFace() {
      * ========================================================
      * OTHER HOUR MARKS
      * ========================================================
-     *
-     * Small dots instead of numbers.
      */
 
     for (int hour = 1; hour <= 12; ++hour) {
@@ -434,9 +436,7 @@ void drawClockHands(
 ) {
 
     /*
-     * ========================================================
-     * SECONDS
-     * ========================================================
+     * Seconds.
      */
 
     const float secondAngle =
@@ -452,11 +452,7 @@ void drawClockHands(
 
 
     /*
-     * ========================================================
-     * MINUTES
-     * ========================================================
-     *
-     * Include seconds for smooth positioning.
+     * Minutes including seconds.
      */
 
     const float minuteValue =
@@ -479,11 +475,7 @@ void drawClockHands(
 
 
     /*
-     * ========================================================
-     * HOURS
-     * ========================================================
-     *
-     * Include minutes so the hour hand moves gradually.
+     * Hours including minutes.
      */
 
     const float hourValue =
@@ -504,9 +496,7 @@ void drawClockHands(
 
 
     /*
-     * ========================================================
-     * HOUR HAND
-     * ========================================================
+     * Hour hand.
      */
 
     drawHand(
@@ -517,9 +507,7 @@ void drawClockHands(
 
 
     /*
-     * ========================================================
-     * MINUTE HAND
-     * ========================================================
+     * Minute hand.
      */
 
     drawHand(
@@ -530,9 +518,7 @@ void drawClockHands(
 
 
     /*
-     * ========================================================
-     * SECOND HAND
-     * ========================================================
+     * Second hand.
      */
 
     drawHand(
@@ -543,9 +529,7 @@ void drawClockHands(
 
 
     /*
-     * ========================================================
-     * CENTER PIN
-     * ========================================================
+     * Center pin.
      */
 
     tft.fillCircle(
@@ -611,11 +595,11 @@ const char* monthRu(
  * DATE
  * ============================================================
  *
- * No frame.
- *
- * Example:
+ * Format:
  *
  * 15 сен
+ *
+ * No frame.
  */
 
 void drawClockDate(
@@ -635,10 +619,6 @@ void drawClockDate(
         )
     );
 
-
-    /*
-     * Larger date.
-     */
 
     if (displayFontIsSmooth()) {
 
@@ -667,6 +647,7 @@ void drawClockDate(
     /*
      * No frame.
      */
+
     tft.drawString(
         datebuf,
         cx,
@@ -677,7 +658,24 @@ void drawClockDate(
 
 /*
  * ============================================================
- * WEATHER
+ * END OF PRIVATE HELPERS
+ * ============================================================
+ *
+ * IMPORTANT:
+ *
+ * Everything above is private to this source file.
+ *
+ * drawWeather(), drawClock() and draw() below belong directly
+ * to namespace ui::info and are visible to the rest of the
+ * project.
+ */
+
+}  // namespace
+
+
+/*
+ * ============================================================
+ * WEATHER SCREEN
  * ============================================================
  */
 
@@ -696,6 +694,7 @@ void drawWeather() {
     /*
      * Title.
      */
+
     line(
         "ПОГОДА",
         25
@@ -703,7 +702,7 @@ void drawWeather() {
 
 
     /*
-     * No weather data yet.
+     * No data.
      */
 
     if (!w.valid) {
@@ -731,9 +730,7 @@ void drawWeather() {
 
 
     /*
-     * ========================================================
-     * TEMPERATURE
-     * ========================================================
+     * Temperature.
      */
 
     snprintf(
@@ -760,9 +757,7 @@ void drawWeather() {
 
 
     /*
-     * ========================================================
-     * WEATHER DESCRIPTION
-     * ========================================================
+     * Weather description.
      */
 
     if (displayFontIsSmooth()) {
@@ -783,9 +778,7 @@ void drawWeather() {
 
 
     /*
-     * ========================================================
-     * FEELS LIKE
-     * ========================================================
+     * Feels like.
      */
 
     snprintf(
@@ -803,9 +796,7 @@ void drawWeather() {
 
 
     /*
-     * ========================================================
-     * HUMIDITY
-     * ========================================================
+     * Humidity.
      */
 
     snprintf(
@@ -823,9 +814,7 @@ void drawWeather() {
 
 
     /*
-     * ========================================================
-     * WIND
-     * ========================================================
+     * Wind.
      */
 
     snprintf(
@@ -846,9 +835,7 @@ void drawWeather() {
 
 
     /*
-     * ========================================================
-     * PRESSURE
-     * ========================================================
+     * Pressure.
      */
 
     snprintf(
@@ -868,15 +855,16 @@ void drawWeather() {
 
 /*
  * ============================================================
- * CLOCK
+ * CLOCK SCREEN
  * ============================================================
  */
 
 void drawClock() {
 
     /*
-     * Clear entire screen.
+     * Clear display.
      */
+
     tft.fillScreen(
         kBlack
     );
@@ -884,10 +872,8 @@ void drawClock() {
 
     /*
      * Get local NTP time.
-     *
-     * Arduino-ESP32 provides getLocalTime()
-     * for reading the synchronized local time.
      */
+
     struct tm tm_now;
 
 
@@ -938,7 +924,7 @@ void drawClock() {
 
     /*
      * ========================================================
-     * DRAW CLOCK FACE
+     * CLOCK FACE
      * ========================================================
      */
 
@@ -947,14 +933,14 @@ void drawClock() {
 
     /*
      * ========================================================
-     * DRAW DATE
+     * DATE
      * ========================================================
-     *
-     * Date has no frame.
      *
      * Example:
      *
      * 15 сен
+     *
+     * No frame.
      */
 
     drawClockDate(
@@ -964,8 +950,10 @@ void drawClock() {
 
     /*
      * ========================================================
-     * DRAW HANDS LAST
+     * HANDS
      * ========================================================
+     *
+     * Drawn last.
      */
 
     drawClockHands(
@@ -999,5 +987,6 @@ void draw(
         drawClock();
     }
 }
+
 
 }  // namespace ui::info
