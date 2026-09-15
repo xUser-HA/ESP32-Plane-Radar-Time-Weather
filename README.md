@@ -44,11 +44,6 @@ After Wi‑Fi is saved, the device reconnects automatically; the radar runs in t
 | **Short tap** | Cycle display mode: **Radar → Weather → Clock → Radar** |
 | **Hold 3 s** | Clear **Wi-Fi settings, location and units**, then reboot into the setup portal |
 
-### Radar range
-
-The selected radar range is stored in flash memory and restored after reboot.
-During setup you can also hold BOOT at power-on to force a credential reset (same as the long press).
-
 ## Wi‑Fi setup portal
 
 **First-time setup** (no saved Wi‑Fi):
