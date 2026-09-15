@@ -8,4 +8,7 @@ void radarDisplayDraw();
 /** Redraw aircraft only (blits cached grid; no full-screen clear). */
 void radarDisplayRefreshAircraft();
 
+/** Smoothly animate the radar sweep. */
+void radarDisplayAnimate();
+
 }  // namespace ui
