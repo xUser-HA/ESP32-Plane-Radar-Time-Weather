@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <cstring>
 
 #include "config.h"
 #include "hardware/display.h"
@@ -60,10 +59,7 @@ int s_scale_label_h = 0;
 lgfx::LovyanGFX* s_draw = &tft;
 
 LGFX_Sprite s_frame(&tft);
-LGFX_Sprite s_base(&tft);
-
 bool s_frame_ready = false;
-bool s_base_ready = false;
 
 class DrawScope {
  public:
@@ -104,8 +100,7 @@ float findVlwSizeForHeight(int target_px) {
     const float mid =
         (lo + hi) * 0.5f;
 
-    if (measureVlwHeight(mid) <
-        target_px) {
+    if (measureVlwHeight(mid) < target_px) {
       lo = mid;
     } else {
       hi = mid;
@@ -132,8 +127,7 @@ const lgfx::GFXfont* pickGfxFontClosest(
   for (size_t i = 1; i < count; ++i) {
     const int diff =
         absDiff(
-            measureGfxHeight(
-                *candidates[i]),
+            measureGfxHeight(*candidates[i]),
             target_px);
 
     if (diff < best_diff) {
@@ -1424,78 +1418,35 @@ void drawStaticGrid(
 }
 
 bool ensureFrameSprite() {
-  if (!s_frame_ready) {
-    s_frame.setColorDepth(16);
-
-    if (!s_frame.createSprite(
-            radar::kSize,
-            radar::kSize)) {
-      Serial.println(
-          "radar: frame sprite alloc failed");
-
-      return false;
-    }
-
-    s_frame_ready = true;
+  if (s_frame_ready) {
+    return true;
   }
 
-  if (!s_base_ready) {
-    s_base.setColorDepth(16);
+  s_frame.setColorDepth(16);
 
-    if (!s_base.createSprite(
-            radar::kSize,
-            radar::kSize)) {
-      Serial.println(
-          "radar: base sprite alloc failed");
+  if (!s_frame.createSprite(
+          radar::kSize,
+          radar::kSize)) {
+    Serial.println(
+        "radar: frame sprite alloc failed");
 
-      return false;
-    }
-
-    s_base_ready = true;
+    return false;
   }
+
+  s_frame_ready = true;
 
   return true;
 }
 
-void copyBaseToFrame() {
-  if (!s_base_ready ||
-      !s_frame_ready) {
-    return;
-  }
-
-  const size_t pixel_count =
-      static_cast<size_t>(
-          radar::kSize) *
-      static_cast<size_t>(
-          radar::kSize);
-
-  memcpy(
-      s_frame.getBuffer(),
-      s_base.getBuffer(),
-      pixel_count *
-          sizeof(uint16_t));
-}
-
-/*
- * Build the complete radar image
- * without the sweep.
- *
- * This function is only called when
- * the radar data changes or the
- * radar screen is first displayed.
- */
 void renderFrame() {
-  drawStaticGrid(
-      s_base);
+  drawStaticGrid(s_frame);
 
   {
     const DrawScope scope(
-        s_base);
+        s_frame);
 
     drawAircraft();
   }
-
-  copyBaseToFrame();
 
   s_frame.pushSprite(
       0,
@@ -1506,15 +1457,13 @@ void renderFrame() {
 }
 
 /*
- * Draw one thin sweep line.
+ * Radar sweep:
  *
+ * 8 seconds for one complete rotation.
  * 0 degrees = North.
- * Rotation is clockwise.
+ * Clockwise rotation.
  *
- * One complete rotation takes
- * exactly 8 seconds.
- *
- * There is intentionally NO tail.
+ * NO TAIL.
  */
 void drawRadarSweep() {
   constexpr unsigned long
@@ -1564,11 +1513,12 @@ void drawRadarSweep() {
               static_cast<float>(
                   radius)));
 
-  const uint16_t sweep_color =
-      tft.color565(
-          80,
-          255,
-          80);
+  const uint16_t
+      sweep_color =
+          tft.color565(
+              80,
+              255,
+              80);
 
   s_frame.drawWideLine(
       cx,
@@ -1578,19 +1528,12 @@ void drawRadarSweep() {
       kSweepLineWidth,
       sweep_color);
 
-  /*
-   * Small bright point at the end.
-   * No trail is drawn.
-   */
   s_frame.fillSmoothCircle(
       ex,
       ey,
       2,
       sweep_color);
 
-  /*
-   * Restore the center dot.
-   */
   s_frame.fillSmoothCircle(
       cx,
       cy,
@@ -1598,27 +1541,30 @@ void drawRadarSweep() {
       radar::kColorCenter);
 }
 
-/*
- * Render one animation frame.
- *
- * IMPORTANT:
- * The grid and aircraft are NOT
- * redrawn here.
- *
- * We restore the already prepared
- * base image and draw only the
- * current sweep line.
- */
 void renderAnimatedFrame() {
-  copyBaseToFrame();
+  /*
+   * Rebuild the normal radar image first.
+   * This removes the previous sweep completely.
+   */
+  drawStaticGrid(
+      s_frame);
 
   {
     const DrawScope scope(
         s_frame);
 
+    drawAircraft();
+
+    /*
+     * Sweep is always drawn last.
+     */
     drawRadarSweep();
   }
 
+  /*
+   * Only the finished frame is
+   * sent to the display.
+   */
   s_frame.pushSprite(
       0,
       0);
