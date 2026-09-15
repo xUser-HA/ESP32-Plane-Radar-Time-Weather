@@ -39,13 +39,10 @@ After Wi‑Fi is saved, the device reconnects automatically; the radar runs in t
 
 ## Controls (BOOT, GPIO 9, active LOW)
 
-The BOOT button is used to control the main display modes and radar range.
-
 | Action | Effect |
 |---|---|
 | **Short tap** | Cycle display mode: **Radar → Weather → Clock → Radar** |
-| **Double tap** | Cycle radar range: **5 → 10 → 15 → 25 km**; the selected range is saved to flash |
-| **Hold 3 s** | Clear **Wi-Fi settings, location and units**, then reboot into the Wi-Fi setup portal |
+| **Hold 3 s** | Clear **Wi-Fi settings, location and units**, then reboot into the setup portal |
 
 ### Radar range
 
