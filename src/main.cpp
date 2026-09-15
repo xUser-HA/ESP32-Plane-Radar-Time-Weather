@@ -241,7 +241,7 @@ void loop() {
        * Open-Meteo.
        */
 
-      if (millis() - g_last_info_refresh_ms >= 30000UL) {
+      if (millis() - g_last_info_refresh_ms >= 1000UL) {
 
         g_last_info_refresh_ms = millis();
 
