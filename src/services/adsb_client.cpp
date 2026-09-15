@@ -8,6 +8,10 @@
 #include <cmath>
 #include <cstring>
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/semphr.h>
+
 #include "config.h"
 
 namespace services::adsb {
@@ -21,12 +25,37 @@ constexpr float kKmPerNm = 1.852f;
 constexpr float kFeetToMeters = 0.3048f;
 
 constexpr int kConnectAttemptMs = 200;
-constexpr unsigned long kRequestTimeoutMs = 10000;
+constexpr unsigned long kRequestTimeoutMs = 10000UL;
+
+constexpr unsigned long kDefaultBackgroundIntervalMs =
+    5000UL;
+
+constexpr uint32_t kTaskStackSize = 8192;
+constexpr UBaseType_t kTaskPriority = 1;
 
 Aircraft s_aircraft[kMaxAircraft];
 size_t s_aircraft_count = 0;
 
 PollFn s_poll_fn = nullptr;
+
+TaskHandle_t s_adsb_task = nullptr;
+SemaphoreHandle_t s_aircraft_mutex = nullptr;
+
+double s_background_lat = 0.0;
+double s_background_lon = 0.0;
+float s_background_radius_km = 25.0f;
+unsigned long s_background_interval_ms =
+    kDefaultBackgroundIntervalMs;
+
+bool s_background_started = false;
+
+/*
+ * Network task builds the new aircraft list here first.
+ * The public display array is updated only after the complete
+ * HTTP response has been parsed.
+ */
+Aircraft s_pending_aircraft[kMaxAircraft];
+size_t s_pending_aircraft_count = 0;
 
 void pollNetwork() {
   if (s_poll_fn != nullptr) {
@@ -35,7 +64,8 @@ void pollNetwork() {
 }
 
 int performGetWithPoll(HTTPClient& http) {
-  http.setConnectTimeout(kConnectAttemptMs);
+  http.setConnectTimeout(
+      kConnectAttemptMs);
 
   const unsigned long deadline =
       millis() + kRequestTimeoutMs;
@@ -43,7 +73,8 @@ int performGetWithPoll(HTTPClient& http) {
   while (millis() < deadline) {
     pollNetwork();
 
-    const int code = http.GET();
+    const int code =
+        http.GET();
 
     if (code > 0) {
       return code;
@@ -379,6 +410,64 @@ void fillTagFields(
       sizeof(ac->alt));
 }
 
+/*
+ * Publish a completely prepared aircraft list.
+ *
+ * The network task never writes directly into the array that
+ * the display is currently reading until the complete list
+ * is ready.
+ */
+void publishAircraftList() {
+  if (s_aircraft_mutex == nullptr) {
+    return;
+  }
+
+  if (xSemaphoreTake(
+          s_aircraft_mutex,
+          pdMS_TO_TICKS(100)) != pdTRUE) {
+    return;
+  }
+
+  memcpy(
+      s_aircraft,
+      s_pending_aircraft,
+      sizeof(s_aircraft));
+
+  s_aircraft_count =
+      s_pending_aircraft_count;
+
+  xSemaphoreGive(
+      s_aircraft_mutex);
+}
+
+void adsbBackgroundTask(
+    void* parameter) {
+  (void)parameter;
+
+  Serial.println(
+      "adsb: background task started");
+
+  for (;;) {
+    if (WiFi.status() ==
+        WL_CONNECTED) {
+      const bool ok =
+          fetchUpdate(
+              s_background_lat,
+              s_background_lon,
+              s_background_radius_km);
+
+      if (!ok) {
+        Serial.println(
+            "adsb: background update failed");
+      }
+    }
+
+    vTaskDelay(
+        pdMS_TO_TICKS(
+            s_background_interval_ms));
+  }
+}
+
 }  // namespace
 
 void setPollFn(PollFn fn) {
@@ -425,6 +514,7 @@ bool fetchUpdate(
           1);
 
   WiFiClientSecure client;
+
   client.setInsecure();
 
   HTTPClient http;
@@ -439,11 +529,13 @@ bool fetchUpdate(
   }
 
   http.useHTTP10(true);
+
   http.setTimeout(
       kRequestTimeoutMs);
 
   const int code =
-      performGetWithPoll(http);
+      performGetWithPoll(
+          http);
 
   if (code != HTTP_CODE_OK) {
     Serial.printf(
@@ -489,7 +581,13 @@ bool fetchUpdate(
       doc["ac"].as<JsonArray>();
 
   if (ac.isNull()) {
-    s_aircraft_count = 0;
+    s_pending_aircraft_count = 0;
+
+    publishAircraftList();
+
+    Serial.println(
+        "adsb: 0 aircraft");
+
     return true;
   }
 
@@ -510,38 +608,126 @@ bool fetchUpdate(
       continue;
     }
 
-    s_aircraft[n].lat =
+    s_pending_aircraft[n].lat =
         plane["lat"].as<float>();
 
-    s_aircraft[n].lon =
+    s_pending_aircraft[n].lon =
         plane["lon"].as<float>();
 
-    s_aircraft[n].nose_deg =
+    s_pending_aircraft[n].nose_deg =
         pickNoseHeading(
             plane);
 
-    s_aircraft[n].track_deg =
+    s_pending_aircraft[n].track_deg =
         pickTrackHeading(
             plane);
 
-    s_aircraft[n].gs_knots =
+    s_pending_aircraft[n].gs_knots =
         pickGroundSpeed(
             plane);
 
     fillTagFields(
-        &s_aircraft[n],
+        &s_pending_aircraft[n],
         plane);
 
     ++n;
   }
 
-  s_aircraft_count = n;
+  s_pending_aircraft_count =
+      n;
+
+  publishAircraftList();
 
   Serial.printf(
       "adsb: %u aircraft\n",
-      static_cast<unsigned>(n));
+      static_cast<unsigned>(
+          n));
 
   return true;
+}
+
+void startBackgroundUpdates(
+    double center_lat,
+    double center_lon,
+    float fetch_radius_km,
+    unsigned long interval_ms) {
+  /*
+   * Do not create the task twice.
+   */
+  if (s_background_started) {
+    return;
+  }
+
+  /*
+   * Store the parameters used by the background task.
+   */
+  s_background_lat =
+      center_lat;
+
+  s_background_lon =
+      center_lon;
+
+  s_background_radius_km =
+      fetch_radius_km;
+
+  if (interval_ms < 1000UL) {
+    interval_ms = 1000UL;
+  }
+
+  s_background_interval_ms =
+      interval_ms;
+
+  /*
+   * Mutex protects publication of the aircraft list.
+   */
+  s_aircraft_mutex =
+      xSemaphoreCreateMutex();
+
+  if (s_aircraft_mutex == nullptr) {
+    Serial.println(
+        "adsb: mutex creation failed");
+
+    return;
+  }
+
+  s_aircraft_count = 0;
+  s_pending_aircraft_count = 0;
+
+  /*
+   * ESP32-C3 is a single-core chip, so there is no need
+   * to pin this task to a particular core.
+   *
+   * 8192 bytes gives the HTTPS/JSON task enough stack space.
+   */
+  const BaseType_t result =
+      xTaskCreate(
+          adsbBackgroundTask,
+          "adsbTask",
+          kTaskStackSize,
+          nullptr,
+          kTaskPriority,
+          &s_adsb_task);
+
+  if (result != pdPASS) {
+    Serial.println(
+        "adsb: task creation failed");
+
+    vSemaphoreDelete(
+        s_aircraft_mutex);
+
+    s_aircraft_mutex =
+        nullptr;
+
+    s_adsb_task =
+        nullptr;
+
+    return;
+  }
+
+  s_background_started = true;
+
+  Serial.println(
+      "adsb: background updates enabled");
 }
 
 }  // namespace services::adsb
