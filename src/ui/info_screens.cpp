@@ -17,7 +17,7 @@ namespace {
 
 /*
  * ============================================================
- * GENERAL
+ * DISPLAY
  * ============================================================
  */
 
@@ -27,30 +27,18 @@ constexpr int cy = config::kDisplayHeight / 2;
 
 /*
  * ============================================================
- * CLOCK SETTINGS
+ * CLOCK
  * ============================================================
- *
- * 240x240 display:
- *
- * Clock radius = 88 px.
- *
- * This leaves a visible margin from the display edge.
  */
 
-constexpr int kClockRadius = 88;
+constexpr int kClockRadius = 101;
 
-constexpr int kMinuteMarkOuter = 84;
-constexpr int kHourMarkOuter = 84;
-constexpr int kHourNumberRadius = 69;
+constexpr int kMinuteMarkOuter = 97;
+constexpr int kHourMarkOuter = 96;
+constexpr int kHourNumberRadius = 81;
 
-
-/*
- * Clock hand lengths.
- */
-
-constexpr int kHourHandLength = 45;
-constexpr int kMinuteHandLength = 64;
-constexpr int kSecondHandLength = 75;
+constexpr int kHourHandLength = 52;
+constexpr int kMinuteHandLength = 74;
 
 
 /*
@@ -59,17 +47,30 @@ constexpr int kSecondHandLength = 75;
  * ============================================================
  */
 
-constexpr uint16_t kBlack    = 0x0000;
-constexpr uint16_t kWhite    = 0xFFFF;
-constexpr uint16_t kSilver   = 0xC618;
-constexpr uint16_t kCyan     = 0x07FF;
-constexpr uint16_t kRed      = 0xF800;
+constexpr uint16_t kBlack = 0x0000;
+constexpr uint16_t kWhite = 0xFFFF;
+constexpr uint16_t kSilver = 0xC618;
+
+constexpr uint16_t kBlue = 0x04FF;
+constexpr uint16_t kCyan = 0x07FF;
+
+constexpr uint16_t kRed = 0xF800;
+constexpr uint16_t kOrange = 0xFD20;
+constexpr uint16_t kYellow = 0xFFE0;
+
+constexpr uint16_t kGreen = 0x07E0;
+constexpr uint16_t kSky = 0x5DFF;
+
+constexpr uint16_t kCloud = 0xBDF7;
+constexpr uint16_t kDarkCloud = 0x7BEF;
+
+constexpr uint16_t kSnow = 0xFFFF;
 constexpr uint16_t kDarkBlue = 0x0190;
 
 
 /*
  * ============================================================
- * TEXT HELPERS
+ * TEXT / GENERAL
  * ============================================================
  */
 
@@ -143,10 +144,8 @@ const char* windDir(
 
 /*
  * ============================================================
- * CLOCK COORDINATES
+ * CLOCK GEOMETRY
  * ============================================================
- *
- * 12 o'clock = -PI/2.
  */
 
 void clockPoint(
@@ -178,19 +177,21 @@ void clockPoint(
 void drawClockFace() {
 
     /*
-     * Outer circle.
+     * Outer bezel.
      */
+
     tft.drawCircle(
         cx,
         cy,
         kClockRadius,
-        kDarkBlue
+        kBlue
     );
 
 
     /*
-     * Inner circle.
+     * Inner highlight.
      */
+
     tft.drawCircle(
         cx,
         cy,
@@ -223,8 +224,8 @@ void drawClockFace() {
 
         const float innerRadius =
             hourMark
-                ? 75.0f
-                : 80.0f;
+                ? 88.0f
+                : 94.0f;
 
 
         int x1;
@@ -271,7 +272,7 @@ void drawClockFace() {
 
         displayFontSetSmoothSize(
             tft,
-            0.85f
+            1.05f
         );
 
     } else {
@@ -344,7 +345,7 @@ void drawClockFace() {
 
     /*
      * ========================================================
-     * OTHER HOUR MARKS
+     * OTHER HOUR MARKERS
      * ========================================================
      */
 
@@ -429,6 +430,19 @@ void drawHand(
  * ============================================================
  * CLOCK HANDS
  * ============================================================
+ *
+ * IMPORTANT:
+ * There is NO SECOND HAND.
+ *
+ * The clock contains only:
+ *
+ *   - hour hand
+ *   - minute hand
+ *   - center dot
+ *
+ * This prevents the second-by-second visual movement that
+ * previously made the display flash.
+ * ============================================================
  */
 
 void drawClockHands(
@@ -436,32 +450,15 @@ void drawClockHands(
 ) {
 
     /*
-     * Seconds.
-     */
-
-    const float secondAngle =
-        (
-            static_cast<float>(
-                tm_now.tm_sec
-            ) *
-            2.0f *
-            PI /
-            60.0f
-        ) -
-        PI / 2.0f;
-
-
-    /*
-     * Minutes including seconds.
+     * ========================================================
+     * MINUTE HAND
+     * ========================================================
      */
 
     const float minuteValue =
         static_cast<float>(
             tm_now.tm_min
-        ) +
-        static_cast<float>(
-            tm_now.tm_sec
-        ) / 60.0f;
+        );
 
 
     const float minuteAngle =
@@ -475,7 +472,11 @@ void drawClockHands(
 
 
     /*
-     * Hours including minutes.
+     * ========================================================
+     * HOUR HAND
+     * ========================================================
+     *
+     * The hour hand moves gradually according to the minute.
      */
 
     const float hourValue =
@@ -513,30 +514,19 @@ void drawClockHands(
     drawHand(
         minuteAngle,
         kMinuteHandLength,
-        kWhite
+        kCyan
     );
 
 
     /*
-     * Second hand.
-     */
-
-    drawHand(
-        secondAngle,
-        kSecondHandLength,
-        kRed
-    );
-
-
-    /*
-     * Center pin.
+     * Center.
      */
 
     tft.fillCircle(
         cx,
         cy,
-        5,
-        kCyan
+        6,
+        kOrange
     );
 
 
@@ -551,30 +541,35 @@ void drawClockHands(
 
 /*
  * ============================================================
- * RUSSIAN MONTH
+ * DATE
  * ============================================================
+ *
+ * User requested English "Sen".
  *
  * Example:
  *
- * 15 сен
+ *   15 Sen
+ *
+ * No frame.
+ * ============================================================
  */
 
-const char* monthRu(
+const char* monthEn(
     int month
 ) {
     static const char* months[] = {
-        "янв",
-        "фев",
-        "мар",
-        "апр",
-        "май",
-        "июн",
-        "июл",
-        "авг",
-        "сен",
-        "окт",
-        "ноя",
-        "дек"
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sen",
+        "Oct",
+        "Nov",
+        "Dec"
     };
 
 
@@ -592,20 +587,13 @@ const char* monthRu(
 
 /*
  * ============================================================
- * DATE
+ * CLOCK DATE
  * ============================================================
- *
- * Format:
- *
- * 15 сен
- *
- * No frame.
  */
 
 void drawClockDate(
     const struct tm& tm_now
 ) {
-
     char datebuf[24];
 
 
@@ -614,7 +602,7 @@ void drawClockDate(
         sizeof(datebuf),
         "%02d %s",
         tm_now.tm_mday,
-        monthRu(
+        monthEn(
             tm_now.tm_mon
         )
     );
@@ -624,12 +612,525 @@ void drawClockDate(
 
         displayFontSetSmoothSize(
             tft,
-            0.70f
+            0.82f
         );
 
     } else {
 
         tft.setTextSize(1);
+    }
+
+
+    tft.setTextColor(
+        kYellow,
+        kBlack
+    );
+
+
+    tft.setTextDatum(
+        textdatum_t::middle_center
+    );
+
+
+    /*
+     * No rectangle / frame.
+     */
+
+    tft.drawString(
+        datebuf,
+        cx,
+        cy + 24
+    );
+}
+
+
+/*
+ * ============================================================
+ * WEATHER ICON: SUN
+ * ============================================================
+ */
+
+void drawSun(
+    int x,
+    int y,
+    int radius
+) {
+    /*
+     * Sun disc.
+     */
+
+    tft.fillCircle(
+        x,
+        y,
+        radius,
+        kYellow
+    );
+
+
+    /*
+     * Rays.
+     */
+
+    for (int i = 0; i < 8; ++i) {
+
+        const float angle =
+            static_cast<float>(i) *
+            PI / 4.0f;
+
+
+        const int x1 =
+            x +
+            static_cast<int>(
+                cosf(angle) *
+                (radius + 5)
+            );
+
+
+        const int y1 =
+            y +
+            static_cast<int>(
+                sinf(angle) *
+                (radius + 5)
+            );
+
+
+        const int x2 =
+            x +
+            static_cast<int>(
+                cosf(angle) *
+                (radius + 11)
+            );
+
+
+        const int y2 =
+            y +
+            static_cast<int>(
+                sinf(angle) *
+                (radius + 11)
+            );
+
+
+        tft.drawLine(
+            x1,
+            y1,
+            x2,
+            y2,
+            kOrange
+        );
+    }
+}
+
+
+/*
+ * ============================================================
+ * WEATHER ICON: CLOUD
+ * ============================================================
+ */
+
+void drawCloud(
+    int x,
+    int y,
+    bool dark
+) {
+    const uint16_t color =
+        dark
+            ? kDarkCloud
+            : kCloud;
+
+
+    tft.fillCircle(
+        x - 16,
+        y + 5,
+        12,
+        color
+    );
+
+
+    tft.fillCircle(
+        x,
+        y - 2,
+        16,
+        color
+    );
+
+
+    tft.fillCircle(
+        x + 17,
+        y + 6,
+        11,
+        color
+    );
+
+
+    tft.fillRect(
+        x - 27,
+        y + 5,
+        54,
+        14,
+        color
+    );
+}
+
+
+/*
+ * ============================================================
+ * WEATHER ICON: RAIN
+ * ============================================================
+ */
+
+void drawRain(
+    int x,
+    int y
+) {
+    drawCloud(
+        x,
+        y,
+        true
+    );
+
+
+    for (int i = -1; i <= 1; ++i) {
+
+        const int rx =
+            x + i * 14;
+
+
+        tft.drawLine(
+            rx,
+            y + 24,
+            rx - 4,
+            y + 33,
+            kSky
+        );
+    }
+}
+
+
+/*
+ * ============================================================
+ * WEATHER ICON: SNOW
+ * ============================================================
+ */
+
+void drawSnow(
+    int x,
+    int y
+) {
+    drawCloud(
+        x,
+        y,
+        false
+    );
+
+
+    for (int i = -1; i <= 1; ++i) {
+
+        const int sx =
+            x + i * 14;
+
+
+        const int sy =
+            y + 29;
+
+
+        tft.drawLine(
+            sx - 4,
+            sy,
+            sx + 4,
+            sy,
+            kSnow
+        );
+
+
+        tft.drawLine(
+            sx,
+            sy - 4,
+            sx,
+            sy + 4,
+            kSnow
+        );
+
+
+        tft.drawLine(
+            sx - 3,
+            sy - 3,
+            sx + 3,
+            sy + 3,
+            kSnow
+        );
+
+
+        tft.drawLine(
+            sx + 3,
+            sy - 3,
+            sx - 3,
+            sy + 3,
+            kSnow
+        );
+    }
+}
+
+
+/*
+ * ============================================================
+ * WEATHER ICON: THUNDERSTORM
+ * ============================================================
+ */
+
+void drawStorm(
+    int x,
+    int y
+) {
+    drawCloud(
+        x,
+        y,
+        true
+    );
+
+
+    /*
+     * Lightning bolt.
+     */
+
+    tft.fillTriangle(
+        x + 2,
+        y + 21,
+        x - 7,
+        y + 38,
+        x + 2,
+        y + 34,
+        kYellow
+    );
+
+
+    tft.fillTriangle(
+        x + 2,
+        y + 34,
+        x + 10,
+        y + 24,
+        x + 2,
+        y + 28,
+        kYellow
+    );
+}
+
+
+/*
+ * ============================================================
+ * WEATHER ICON: PARTLY CLOUDY
+ * ============================================================
+ */
+
+void drawPartlyCloudy(
+    int x,
+    int y
+) {
+    drawSun(
+        x - 15,
+        y - 9,
+        13
+    );
+
+
+    drawCloud(
+        x + 8,
+        y + 7,
+        false
+    );
+}
+
+
+/*
+ * ============================================================
+ * WEATHER ICON SELECTOR
+ * ============================================================
+ *
+ * WMO weather codes from Open-Meteo.
+ * ============================================================
+ */
+
+void drawWeatherIcon(
+    int code,
+    int x,
+    int y
+) {
+
+    /*
+     * Clear.
+     */
+
+    if (code == 0) {
+
+        drawSun(
+            x,
+            y,
+            19
+        );
+
+        return;
+    }
+
+
+    /*
+     * Mainly clear / partly cloudy.
+     */
+
+    if (
+        code == 1 ||
+        code == 2
+    ) {
+
+        drawPartlyCloudy(
+            x,
+            y
+        );
+
+        return;
+    }
+
+
+    /*
+     * Overcast.
+     */
+
+    if (code == 3) {
+
+        drawCloud(
+            x,
+            y,
+            false
+        );
+
+        return;
+    }
+
+
+    /*
+     * Fog.
+     */
+
+    if (
+        code == 45 ||
+        code == 48
+    ) {
+
+        drawCloud(
+            x,
+            y,
+            true
+        );
+
+
+        for (int i = -1; i <= 1; ++i) {
+
+            tft.drawLine(
+                x - 25,
+                y + 27 + i * 6,
+                x + 25,
+                y + 27 + i * 6,
+                kSilver
+            );
+        }
+
+        return;
+    }
+
+
+    /*
+     * Drizzle / freezing rain / rain.
+     */
+
+    if (
+        (code >= 51 && code <= 67) ||
+        (code >= 80 && code <= 82)
+    ) {
+
+        drawRain(
+            x,
+            y
+        );
+
+        return;
+    }
+
+
+    /*
+     * Snow.
+     */
+
+    if (
+        (code >= 71 && code <= 77) ||
+        code == 85 ||
+        code == 86
+    ) {
+
+        drawSnow(
+            x,
+            y
+        );
+
+        return;
+    }
+
+
+    /*
+     * Thunderstorm.
+     */
+
+    if (
+        code == 95 ||
+        code == 96 ||
+        code == 99
+    ) {
+
+        drawStorm(
+            x,
+            y
+        );
+
+        return;
+    }
+
+
+    /*
+     * Unknown.
+     */
+
+    drawCloud(
+        x,
+        y,
+        false
+    );
+}
+
+
+/*
+ * ============================================================
+ * WEATHER SCREEN
+ * ============================================================
+ */
+
+void drawWeather() {
+
+    tft.fillScreen(
+        kBlack
+    );
+
+
+    const auto& w =
+        services::weather::current();
+
+
+    /*
+     * Title.
+     */
+
+    if (displayFontIsSmooth()) {
+
+        displayFontSetSmoothSize(
+            tft,
+            0.62f
+        );
     }
 
 
@@ -644,60 +1145,10 @@ void drawClockDate(
     );
 
 
-    /*
-     * No frame.
-     */
-
     tft.drawString(
-        datebuf,
+        "WEATHER",
         cx,
-        cy + 20
-    );
-}
-
-
-/*
- * ============================================================
- * END OF PRIVATE HELPERS
- * ============================================================
- *
- * IMPORTANT:
- *
- * Everything above is private to this source file.
- *
- * drawWeather(), drawClock() and draw() below belong directly
- * to namespace ui::info and are visible to the rest of the
- * project.
- */
-
-}  // namespace
-
-
-/*
- * ============================================================
- * WEATHER SCREEN
- * ============================================================
- */
-
-void drawWeather() {
-
-    style(
-        0.72f,
-        config::kTextOnBlack
-    );
-
-
-    const auto& w =
-        services::weather::current();
-
-
-    /*
-     * Title.
-     */
-
-    line(
-        "ПОГОДА",
-        25
+        18
     );
 
 
@@ -707,31 +1158,54 @@ void drawWeather() {
 
     if (!w.valid) {
 
-        line(
-            "Нет данных",
-            82
+        if (displayFontIsSmooth()) {
+
+            displayFontSetSmoothSize(
+                tft,
+                0.65f
+            );
+        }
+
+
+        tft.drawString(
+            "No data",
+            cx,
+            100
         );
 
-        line(
-            "Ожидание данных...",
-            112
+
+        tft.drawString(
+            "Waiting...",
+            cx,
+            130
         );
 
-        line(
-            "Проверьте соединение",
-            142
-        );
 
         return;
     }
 
 
-    char buf[64];
+    /*
+     * ========================================================
+     * WEATHER ICON
+     * ========================================================
+     */
+
+    drawWeatherIcon(
+        w.weather_code,
+        58,
+        75
+    );
 
 
     /*
-     * Temperature.
+     * ========================================================
+     * TEMPERATURE
+     * ========================================================
      */
+
+    char buf[64];
+
 
     snprintf(
         buf,
@@ -750,77 +1224,113 @@ void drawWeather() {
     }
 
 
-    line(
+    tft.setTextColor(
+        kOrange,
+        kBlack
+    );
+
+
+    tft.drawString(
         buf,
-        72
+        145,
+        70
     );
 
 
     /*
-     * Weather description.
+     * ========================================================
+     * DESCRIPTION
+     * ========================================================
      */
 
     if (displayFontIsSmooth()) {
 
         displayFontSetSmoothSize(
             tft,
-            0.62f
+            0.55f
         );
     }
 
 
-    line(
+    tft.setTextColor(
+        kWhite,
+        kBlack
+    );
+
+
+    tft.drawString(
         services::weather::descriptionRu(
             w.weather_code
         ),
-        105
+        145,
+        98
     );
 
 
     /*
-     * Feels like.
+     * ========================================================
+     * FEELS LIKE
+     * ========================================================
      */
 
     snprintf(
         buf,
         sizeof(buf),
-        "Ощущается %.1f C",
+        "Feels %.1f C",
         w.apparent_c
     );
 
 
-    line(
+    tft.setTextColor(
+        kCyan,
+        kBlack
+    );
+
+
+    tft.drawString(
         buf,
-        128
+        cx,
+        130
     );
 
 
     /*
-     * Humidity.
+     * ========================================================
+     * HUMIDITY
+     * ========================================================
      */
 
     snprintf(
         buf,
         sizeof(buf),
-        "Влажность %.0f%%",
+        "Humidity %.0f%%",
         w.humidity_pct
     );
 
 
-    line(
+    tft.setTextColor(
+        kSky,
+        kBlack
+    );
+
+
+    tft.drawString(
         buf,
-        150
+        cx,
+        154
     );
 
 
     /*
-     * Wind.
+     * ========================================================
+     * WIND
+     * ========================================================
      */
 
     snprintf(
         buf,
         sizeof(buf),
-        "Ветер %.1f м/с %s",
+        "Wind %.1f m/s %s",
         w.wind_ms,
         windDir(
             w.wind_deg
@@ -828,27 +1338,43 @@ void drawWeather() {
     );
 
 
-    line(
+    tft.setTextColor(
+        kGreen,
+        kBlack
+    );
+
+
+    tft.drawString(
         buf,
-        172
+        cx,
+        178
     );
 
 
     /*
-     * Pressure.
+     * ========================================================
+     * PRESSURE
+     * ========================================================
      */
 
     snprintf(
         buf,
         sizeof(buf),
-        "Давление %.0f hPa",
+        "Pressure %.0f hPa",
         w.pressure_hpa
     );
 
 
-    line(
+    tft.setTextColor(
+        kSilver,
+        kBlack
+    );
+
+
+    tft.drawString(
         buf,
-        194
+        cx,
+        202
     );
 }
 
@@ -905,7 +1431,7 @@ void drawClock() {
 
 
         tft.drawString(
-            "СИНХРОНИЗАЦИЯ",
+            "SYNC",
             cx,
             cy - 10
         );
@@ -938,9 +1464,11 @@ void drawClock() {
      *
      * Example:
      *
-     * 15 сен
+     * 15 Sen
      *
      * No frame.
+     * No Almaty.
+     * No UTC+5.
      */
 
     drawClockDate(
@@ -953,7 +1481,9 @@ void drawClock() {
      * HANDS
      * ========================================================
      *
-     * Drawn last.
+     * ONLY hour + minute.
+     *
+     * NO second hand.
      */
 
     drawClockHands(
