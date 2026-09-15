@@ -21,13 +21,13 @@ jobs:
         run: pip install --upgrade platformio
 
       - name: Build firmware
-        run: pio run
+        run: pio run -d ./ESP32-Plane-Radar-Time-Weather
 
       - name: Upload firmware
         uses: actions/upload-artifact@v7
         with:
           name: ESP32-Plane-Radar-v1.1.3-weather-clock
           path: |
-            .pio/build/**/firmware.bin
-            .pio/build/**/firmware.elf
+            ESP32-Plane-Radar-Time-Weather/.pio/build/**/firmware.bin
+            ESP32-Plane-Radar-Time-Weather/.pio/build/**/firmware.elf
           if-no-files-found: error
