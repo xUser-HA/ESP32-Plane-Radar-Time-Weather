@@ -39,11 +39,17 @@ After Wi‑Fi is saved, the device reconnects automatically; the radar runs in t
 
 ## Controls (BOOT, GPIO 9, active LOW)
 
-| Action | Effect |
-|--------|--------|
-| **Short tap** | Cycle range preset (5 → 10 → 15 → 25 km); saved to flash |
-| **Hold 3 s** | Clear Wi‑Fi, location, and units; reboot into setup portal |
+The BOOT button is used to control the main display modes and radar range.
 
+| Action | Effect |
+|---|---|
+| **Short tap** | Cycle display mode: **Radar → Weather → Clock → Radar** |
+| **Double tap** | Cycle radar range: **5 → 10 → 15 → 25 km**; the selected range is saved to flash |
+| **Hold 3 s** | Clear **Wi-Fi settings, location and units**, then reboot into the Wi-Fi setup portal |
+
+### Radar range
+
+The selected radar range is stored in flash memory and restored after reboot.
 During setup you can also hold BOOT at power-on to force a credential reset (same as the long press).
 
 ## Wi‑Fi setup portal
@@ -81,14 +87,6 @@ After a reset, the device reboots and shows the setup screen immediately (no “
 
 Layout and colors: `include/ui/radar_theme.h`.
 
-### Range presets
-
-| Ring 3 label | Outer radius (aircraft scale) |
-|------------|-------------------------------|
-| 5 km / 3 mi | ~6.7 km |
-| 10 km / 6 mi | ~13.3 km (default) |
-| 15 km / 9 mi | ~20 km |
-| 25 km / 16 mi | ~33.3 km |
 
 Preset and miles/km choice persist across reboot (`planeradar` NVS namespace).
 
