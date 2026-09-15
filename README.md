@@ -4,6 +4,30 @@
 
 **3D printed case (STL + assembly):** [MakerWorld](https://makerworld.com/en/models/2872376-esp32-plane-radar-live-ads-b-on-a-round-display#profileId-3207083) · **Firmware:** [Releases](https://github.com/MatixYo/ESP32-Plane-Radar/releases)
 
+# ESP32 Plane Radar — Custom Fork
+
+This repository is a customized fork of the original
+[ESP32-Plane-Radar](https://github.com/MatixYo/ESP32-Plane-Radar)
+project by MatixYo.
+
+The original project is licensed under the MIT License.
+The original copyright notice and license have been preserved.
+
+## Custom modifications
+
+This fork contains custom modifications and additional features, including:
+
+- Weather screen using Open-Meteo
+- Clock screen
+- Radar / Weather / Clock screen switching
+- Radar range configured for 25 km
+- Smooth radar sweep animation
+- Aircraft altitude displayed in meters instead of feet
+- UI and display improvements
+- Adaptations and configuration for ESP32-C3 + GC9A01 240×240 display
+
+All modifications in this fork are made by the fork maintainer.
+
 Firmware for an **ESP32-C3 Super Mini** and a **1.28″ round GC9A01** display (240×240). Shows a circular **ADS-B radar** around your configured location, with **WiFiManager** for first-time setup.
 
 ## What it does
@@ -222,3 +246,12 @@ Controls:
 - **Hold BOOT 3 s** — keep the original Wi-Fi/location reset behavior.
 
 Weather is refreshed approximately every 10 minutes; the displayed information screen is redrawn every 30 seconds. Open-Meteo does not require an API key.
+
+## License
+
+This project is based on the original ESP32-Plane-Radar project by MatixYo.
+
+The original project is licensed under the MIT License.
+See [LICENSE](LICENSE) for the complete license text.
+
+Copyright (c) 2026 MatixYo
