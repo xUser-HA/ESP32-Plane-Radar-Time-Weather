@@ -14,14 +14,18 @@ namespace services::adsb {
 
 namespace {
 
-constexpr char kApiBase[] = "https://opendata.adsb.fi/api/v3/lat/";
+constexpr char kApiBase[] =
+    "https://opendata.adsb.fi/api/v3/lat/";
+
 constexpr float kKmPerNm = 1.852f;
 constexpr float kFeetToMeters = 0.3048f;
+
 constexpr int kConnectAttemptMs = 200;
 constexpr unsigned long kRequestTimeoutMs = 10000;
 
 Aircraft s_aircraft[kMaxAircraft];
 size_t s_aircraft_count = 0;
+
 PollFn s_poll_fn = nullptr;
 
 void pollNetwork() {
@@ -138,7 +142,6 @@ bool readJsonFloat(
   if (obj[key].is<float>() ||
       obj[key].is<double>() ||
       obj[key].is<int>()) {
-
     *out = obj[key].as<float>();
     return true;
   }
@@ -246,12 +249,14 @@ float pickGroundSpeed(
 
 bool isOnGround(
     const JsonObject& plane) {
-  if (!plane["alt_baro"].is<const char*>()) {
+  if (!plane["alt_baro"]
+           .is<const char*>()) {
     return false;
   }
 
   return strcmp(
-             plane["alt_baro"].as<const char*>(),
+             plane["alt_baro"]
+                 .as<const char*>(),
              "ground") == 0;
 }
 
@@ -288,19 +293,6 @@ void copyJsonStringTrimmed(
   out[n] = '\0';
 }
 
-/*
- * Format aircraft altitude for the radar tag.
- *
- * ADS-B altitude is supplied by the API in feet.
- * We convert it to meters and round to the nearest
- * 10 meters to keep the tag compact and stable.
- *
- * Examples:
- *   35000 ft -> 10670 m
- *   10000 ft -> 3050 m
- *    5000 ft -> 1520 m
- *    2500 ft ->  760 m
- */
 void formatAltitudeTag(
     const JsonObject& plane,
     char* out,
@@ -311,9 +303,11 @@ void formatAltitudeTag(
     return;
   }
 
-  if (plane["alt_baro"].is<const char*>()) {
+  if (plane["alt_baro"]
+          .is<const char*>()) {
     const char* s =
-        plane["alt_baro"].as<const char*>();
+        plane["alt_baro"]
+            .as<const char*>();
 
     if (strcmp(s, "ground") == 0) {
       strncpy(
@@ -321,7 +315,9 @@ void formatAltitudeTag(
           "GND",
           out_len - 1);
 
-      out[out_len - 1] = '\0';
+      out[out_len - 1] =
+          '\0';
+
       return;
     }
   }
@@ -336,20 +332,14 @@ void formatAltitudeTag(
           plane,
           "alt_geom",
           &alt_ft)) {
-
     const float alt_m =
-        alt_ft * kFeetToMeters;
+        alt_ft *
+        kFeetToMeters;
 
-    /*
-     * Round to nearest 10 meters.
-     *
-     * Example:
-     * 10673 m -> 10670 m
-     *  3047 m ->  3050 m
-     */
     const int alt_m_rounded =
         static_cast<int>(
-            lroundf(alt_m / 10.0f) *
+            lroundf(
+                alt_m / 10.0f) *
             10);
 
     snprintf(
@@ -413,21 +403,26 @@ bool fetchUpdate(
 
   String url = kApiBase;
 
-  url += String(
-      center_lat,
-      6);
+  url +=
+      String(
+          center_lat,
+          6);
 
-  url += "/lon/";
+  url +=
+      "/lon/";
 
-  url += String(
-      center_lon,
-      6);
+  url +=
+      String(
+          center_lon,
+          6);
 
-  url += "/dist/";
+  url +=
+      "/dist/";
 
-  url += String(
-      dist_nm,
-      1);
+  url +=
+      String(
+          dist_nm,
+          1);
 
   WiFiClientSecure client;
   client.setInsecure();
@@ -522,13 +517,16 @@ bool fetchUpdate(
         plane["lon"].as<float>();
 
     s_aircraft[n].nose_deg =
-        pickNoseHeading(plane);
+        pickNoseHeading(
+            plane);
 
     s_aircraft[n].track_deg =
-        pickTrackHeading(plane);
+        pickTrackHeading(
+            plane);
 
     s_aircraft[n].gs_knots =
-        pickGroundSpeed(plane);
+        pickGroundSpeed(
+            plane);
 
     fillTagFields(
         &s_aircraft[n],
