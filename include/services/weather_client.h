@@ -26,4 +26,6 @@ const char* descriptionRu(int weather_code);
  */
 bool updateTimezone(double lat, double lon);
 
+const char* timezone();
+
 }  // namespace services::weather
