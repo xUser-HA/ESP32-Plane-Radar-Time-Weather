@@ -244,23 +244,22 @@ bool updateTimezone(
     return false;
   }
 
-  /*
-   * We already receive timezone from the
-   * regular weather request. If it has been
-   * resolved, use that value.
-   */
   if (s_timezone_valid) {
     return true;
   }
 
-  /*
-   * Force a weather request so Open-Meteo
-   * returns timezone=auto for these coordinates.
-   */
   s_last_fetch_ms = 0;
 
   return update(lat, lon) &&
          s_timezone_valid;
+}
+
+const char* timezone() {
+  if (!s_timezone_valid) {
+    return "";
+  }
+
+  return s_timezone;
 }
 
 }  // namespace services::weather
