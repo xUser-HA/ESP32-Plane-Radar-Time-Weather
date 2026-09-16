@@ -21,11 +21,15 @@ bool update(double lat, double lon);
 const char* descriptionRu(int weather_code);
 
 /**
- * Resolve the IANA timezone from the supplied coordinates
+ * Resolve the timezone from the supplied coordinates
  * using Open-Meteo timezone=auto.
  */
 bool updateTimezone(double lat, double lon);
 
+/** Return the resolved timezone name. */
 const char* timezone();
+
+/** Return the current UTC offset in seconds. */
+long timezoneOffsetSeconds();
 
 }  // namespace services::weather
