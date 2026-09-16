@@ -3,7 +3,6 @@
 namespace services::weather {
 
 struct CurrentWeather {
-  bool valid = false;
   float temperature_c = 0.0f;
   float apparent_c = 0.0f;
   float humidity_pct = 0.0f;
@@ -11,10 +10,17 @@ struct CurrentWeather {
   float wind_ms = 0.0f;
   float wind_deg = 0.0f;
   int weather_code = -1;
+  bool valid = false;
 };
 
-bool update(double lat, double lon);
 const CurrentWeather& current();
-const char* descriptionRu(int weather_code);
+
+bool update(double lat, double lon);
+
+/**
+ * Resolve the IANA timezone from the supplied coordinates
+ * using Open-Meteo timezone=auto.
+ */
+bool updateTimezone(double lat, double lon);
 
 }  // namespace services::weather
