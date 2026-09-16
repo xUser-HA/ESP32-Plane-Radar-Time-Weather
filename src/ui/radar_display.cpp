@@ -1470,7 +1470,7 @@ void drawRadarSweep() {
       kSweepPeriodMs = 8000UL;
 
   constexpr int
-      kSweepLineWidth = 2;
+      kSweepLineWidth = 1;
 
   const unsigned long now =
       millis();
