@@ -5,6 +5,8 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 
+#include <cstring>
+
 namespace services::weather {
 
 namespace {
@@ -19,6 +21,8 @@ constexpr unsigned long kRefreshMs =
 bool s_timezone_valid = false;
 
 char s_timezone[40] = {0};
+
+long s_timezone_offset_seconds = 0;
 
 }  // namespace
 
@@ -136,6 +140,9 @@ bool update(double lat, double lon) {
   if (!http.begin(
           client,
           url)) {
+    Serial.println(
+        "weather: http.begin failed");
+
     return false;
   }
 
@@ -143,7 +150,12 @@ bool update(double lat, double lon) {
       http.GET();
 
   if (code != HTTP_CODE_OK) {
+    Serial.printf(
+        "weather: HTTP %d\n",
+        code);
+
     http.end();
+
     return false;
   }
 
@@ -157,26 +169,33 @@ bool update(double lat, double lon) {
   http.end();
 
   if (err) {
+    Serial.printf(
+        "weather: JSON parse error: %s\n",
+        err.c_str());
+
     return false;
   }
 
   /*
-   * Open-Meteo returns the IANA timezone
-   * corresponding to the requested coordinates.
-   *
-   * Example:
-   *   Asia/Almaty
-   *   Europe/Moscow
-   *   Asia/Tokyo
+   * Open-Meteo automatically resolves the
+   * timezone from latitude/longitude when
+   * timezone=auto is used.
    */
-  const char* timezone =
+  const char* timezone_value =
       doc["timezone"];
 
-  if (timezone != nullptr &&
-      timezone[0] != '\0') {
+  const long timezone_offset =
+      doc["utc_offset_seconds"] |
+      0L;
+
+  s_timezone_offset_seconds =
+      timezone_offset;
+
+  if (timezone_value != nullptr &&
+      timezone_value[0] != '\0') {
     strncpy(
         s_timezone,
-        timezone,
+        timezone_value,
         sizeof(s_timezone) - 1);
 
     s_timezone[
@@ -188,6 +207,10 @@ bool update(double lat, double lon) {
     Serial.printf(
         "weather: timezone = %s\n",
         s_timezone);
+
+    Serial.printf(
+        "weather: UTC offset = %ld seconds\n",
+        s_timezone_offset_seconds);
   }
 
   JsonObject cur =
@@ -244,10 +267,18 @@ bool updateTimezone(
     return false;
   }
 
+  /*
+   * If timezone has already been resolved,
+   * keep the current value.
+   */
   if (s_timezone_valid) {
     return true;
   }
 
+  /*
+   * Force a fresh Open-Meteo request so that
+   * timezone and utc_offset_seconds are obtained.
+   */
   s_last_fetch_ms = 0;
 
   return update(lat, lon) &&
@@ -260,6 +291,10 @@ const char* timezone() {
   }
 
   return s_timezone;
+}
+
+long timezoneOffsetSeconds() {
+  return s_timezone_offset_seconds;
 }
 
 }  // namespace services::weather
