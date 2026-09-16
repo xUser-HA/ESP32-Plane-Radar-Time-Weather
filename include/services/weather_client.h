@@ -17,6 +17,9 @@ const CurrentWeather& current();
 
 bool update(double lat, double lon);
 
+/** Return a short Russian description for a WMO weather code. */
+const char* descriptionRu(int weather_code);
+
 /**
  * Resolve the IANA timezone from the supplied coordinates
  * using Open-Meteo timezone=auto.
