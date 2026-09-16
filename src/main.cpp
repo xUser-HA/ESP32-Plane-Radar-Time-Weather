@@ -29,38 +29,109 @@ unsigned long g_last_radar_animation_ms = 0;
 ui::info::Screen g_screen =
     ui::info::Screen::Radar;
 
-// Single tap changes screen.
-// Double tap changes radar range.
 bool g_pending_tap = false;
 unsigned long g_pending_tap_ms = 0;
 
-constexpr unsigned long kDoubleTapWindowMs = 420;
+constexpr unsigned long kDoubleTapWindowMs =
+    420UL;
 
-// Radar animation target: about 30 FPS.
 constexpr unsigned long
-    kRadarAnimationIntervalMs = 33UL;
+    kRadarAnimationIntervalMs =
+        33UL;
 
+/*
+ * NTP uses UTC.
+ *
+ * The local UTC offset is obtained automatically
+ * from the device coordinates through Open-Meteo.
+ */
 void setupTime() {
-  // Kazakhstan / Almaty: UTC+5, no DST.
+  const long utc_offset_seconds =
+      services::weather::timezoneOffsetSeconds();
+
+  Serial.printf(
+      "time: UTC offset = %ld seconds\n",
+      utc_offset_seconds);
+
   configTime(
-      5 * 3600,
+      utc_offset_seconds,
       0,
       "pool.ntp.org",
       "time.nist.gov",
       "time.google.com");
 }
 
+/*
+ * Resolve timezone from device coordinates.
+ *
+ * Open-Meteo uses:
+ *
+ *   latitude + longitude
+ *          ↓
+ *      timezone=auto
+ *          ↓
+ *   timezone + utc_offset_seconds
+ */
+bool setupTimezone() {
+  const double lat =
+      services::location::lat();
+
+  const double lon =
+      services::location::lon();
+
+  if (!services::weather::updateTimezone(
+          lat,
+          lon)) {
+    Serial.println(
+        "time: timezone resolution failed");
+
+    return false;
+  }
+
+  const char* timezone =
+      services::weather::timezone();
+
+  if (timezone == nullptr ||
+      timezone[0] == '\0') {
+    Serial.println(
+        "time: timezone is empty");
+
+    return false;
+  }
+
+  Serial.printf(
+      "time: timezone = %s\n",
+      timezone);
+
+  Serial.printf(
+      "time: UTC offset = %ld seconds\n",
+      services::weather::
+          timezoneOffsetSeconds());
+
+  return true;
+}
+
 void drawCurrentScreen() {
-  if (g_screen == ui::info::Screen::Radar) {
-    if (WiFi.status() == WL_CONNECTED) {
+  if (g_screen ==
+      ui::info::Screen::Radar) {
+
+    if (WiFi.status() ==
+        WL_CONNECTED) {
+
       ui::radarDisplayDraw();
 
       g_radar_visible = true;
-      g_last_radar_animation_ms = millis();
+
+      g_last_radar_animation_ms =
+          millis();
     }
+
   } else {
+
     g_radar_visible = false;
-    ui::info::draw(g_screen);
+
+    ui::info::draw(
+        g_screen);
   }
 }
 
@@ -76,10 +147,14 @@ void onRangeTap() {
   Serial.printf(
       "Range: %s (outer ~%.0f km)\n",
       range_label,
-      ui::radar::rangeCurrent().outer_km);
+      ui::radar::rangeCurrent()
+          .outer_km);
 
-  if (g_screen == ui::info::Screen::Radar &&
-      WiFi.status() == WL_CONNECTED) {
+  if (g_screen ==
+          ui::info::Screen::Radar &&
+      WiFi.status() ==
+          WL_CONNECTED) {
+
     ui::radarDisplayDraw();
 
     g_last_radar_animation_ms =
@@ -90,6 +165,7 @@ void onRangeTap() {
 void cycleScreen() {
   if (g_screen ==
       ui::info::Screen::Radar) {
+
     g_screen =
         ui::info::Screen::Weather;
 
@@ -100,10 +176,12 @@ void cycleScreen() {
   } else if (
       g_screen ==
       ui::info::Screen::Weather) {
+
     g_screen =
         ui::info::Screen::Clock;
 
   } else {
+
     g_screen =
         ui::info::Screen::Radar;
   }
@@ -121,10 +199,12 @@ void handleBootButton() {
     if (g_pending_tap &&
         now - g_pending_tap_ms <=
             kDoubleTapWindowMs) {
+
       g_pending_tap = false;
 
       if (g_screen ==
           ui::info::Screen::Radar) {
+
         onRangeTap();
       }
 
@@ -136,8 +216,10 @@ void handleBootButton() {
   }
 
   if (g_pending_tap &&
-      millis() - g_pending_tap_ms >
+      millis() -
+              g_pending_tap_ms >
           kDoubleTapWindowMs) {
+
     g_pending_tap = false;
 
     cycleScreen();
@@ -163,7 +245,8 @@ void updateRadarAnimation() {
     return;
   }
 
-  g_last_radar_animation_ms = now;
+  g_last_radar_animation_ms =
+      now;
 
   ui::radarDisplayAnimate();
 }
@@ -196,6 +279,17 @@ void setup() {
       wifiLoop);
 
   if (wifiSetupConnect()) {
+
+    /*
+     * Resolve timezone from coordinates
+     * before starting the local clock.
+     */
+    setupTimezone();
+
+    /*
+     * Synchronize NTP using UTC plus the
+     * automatically detected local offset.
+     */
     setupTime();
 
     services::weather::update(
@@ -203,11 +297,9 @@ void setup() {
         services::location::lon());
 
     /*
-     * Start ADS-B networking in a separate
-     * FreeRTOS task.
-     *
-     * The main loop will no longer wait
-     * for HTTPS/ADS-B requests.
+     * ADS-B remains in the background
+     * so the radar animation is not blocked
+     * by HTTPS requests.
      */
     services::adsb::startBackgroundUpdates(
         services::location::lat(),
@@ -220,21 +312,21 @@ void setup() {
 }
 
 void loop() {
-  /*
-   * Keep the display/button loop responsive.
-   */
   handleBootButton();
 
   wifiLoop();
 
   /*
-   * Radar sweep runs independently from
-   * ADS-B network requests.
+   * Radar animation is independent from
+   * the ADS-B network task.
    */
   updateRadarAnimation();
 
-  if (WiFi.status() != WL_CONNECTED) {
+  if (WiFi.status() !=
+      WL_CONNECTED) {
+
     if (g_radar_visible) {
+
       Serial.println(
           "WiFi lost — will reconnect");
 
@@ -242,7 +334,8 @@ void loop() {
     }
 
     if (g_wifi_down_since == 0) {
-      g_wifi_down_since = millis();
+      g_wifi_down_since =
+          millis();
     }
 
     const unsigned long down_ms =
@@ -253,12 +346,24 @@ void loop() {
             config::kWifiDownGraceMs &&
         millis() -
                 g_last_reconnect_ms >=
-            config::kWifiReconnectIntervalMs) {
+            config::
+                kWifiReconnectIntervalMs) {
+
       g_last_reconnect_ms =
           millis();
 
       if (wifiReconnect()) {
+
         g_wifi_down_since = 0;
+
+        /*
+         * Resolve timezone again after
+         * Wi-Fi reconnect.
+         */
+        services::weather::
+            updateTimezone(
+                services::location::lat(),
+                services::location::lon());
 
         setupTime();
 
@@ -271,6 +376,7 @@ void loop() {
     }
 
   } else {
+
     g_wifi_down_since = 0;
 
     if (g_screen ==
@@ -285,6 +391,7 @@ void loop() {
       if (millis() -
               g_last_info_refresh_ms >=
           30000UL) {
+
         g_last_info_refresh_ms =
             millis();
 
@@ -305,10 +412,5 @@ void loop() {
     }
   }
 
-  /*
-   * Small yield so WiFi/FreeRTOS tasks
-   * get processor time without creating
-   * a visible delay in the sweep.
-   */
   delay(1);
 }
